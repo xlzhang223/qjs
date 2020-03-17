@@ -3,23 +3,18 @@
 <h2>News</h2>
 
 <ul>
+  <li>2020-03-16:
+    <ul>
+      <li>New release</li>
+    </ul>
+  </li>
   <li>2020-01-19:
     <ul>
       <li>New release with
     experimental <a href="https://github.com/littledan/proposal-bigdecimal">BigDecimal</a>
     support and updated operator overloading.</li>
-      <li><a href="https://bellard.org/quickjs/pi.html">Small Javascript programs</a> to compute
+      <li><a href="pi.html">Small Javascript programs</a> to compute
       one billion digits of pi.</li>
-    </ul>
-  </li>
-  <li>2019-12-21:
-    <ul>
-      <li>New release</li>
-    </ul>
-  </li>
-  <li>2019-10-27:
-    <ul>
-      <li>New release</li>
     </ul>
   </li>
 </ul>
@@ -92,15 +87,15 @@ version</a>, <a href="https://bellard.org/quickjs/jsbignum.pdf">PDF version</a>.
 
 <ul>
   <li>
-    QuickJS source code: <a href="https://bellard.org/quickjs/quickjs-2020-01-19.tar.xz">quickjs-2020-01-19.tar.xz</a></li>
+    QuickJS source code: <a href="https://bellard.org/quickjs/quickjs-2020-03-16.tar.xz">quickjs-2020-03-16.tar.xz</a></li>
   <li>
-    QuickJS extras (contain the unicode files needed to rebuild the unicode tables and the bench-v8 benchmark): <a href="https://bellard.org/quickjs/quickjs-extras-2020-01-19.tar.xz">quickjs-extras-2020-01-19.tar.xz</a>
+    QuickJS extras (contain the unicode files needed to rebuild the unicode tables and the bench-v8 benchmark): <a href="https://bellard.org/quickjs/quickjs-extras-2020-03-16.tar.xz">quickjs-extras-2020-03-16.tar.xz</a>
   </li>
   <li>
     Unofficial <a href="https://github.com/horhof/quickjs">git mirror</a>.
   </li>
   <li>
-    Binary releases for Linux are available in <a href="https://github.com/GoogleChromeLabs/jsvu">jsvu</a>.
+    Binary releases for Linux are available in <a href="https://github.com/GoogleChromeLabs/jsvu">jsvu</a> and <a href="https://bellard.org/quickjs/binary_releases">here</a>.
   </li>
   <li>
     Typescript compiler compiled with QuickJS: <a href="https://bellard.org/quickjs/quickjs-typescript-linux-x86.tar.xz">quickjs-typescript-linux-x86.tar.xz</a>
@@ -121,7 +116,7 @@ conversion, unicode normalization, unicode script queries, unicode
 general category queries and all unicode binary properties.</li>
   <li><b>libbf</b>: small library implementing arbitrary precision
     IEEE 754 floating point operations and transcendental functions with
-    exact rounding. It is maintained as a <a href="https://bellard.org/quickjs//libbf">separate project</a>.
+    exact rounding. It is maintained as a <a href="https://bellard.org/quickjs/libbf">separate project</a>.
   </li>
 </ul>
 
@@ -141,5 +136,3 @@ Bellard and Charlie Gordon.
 
 <hr>
 Fabrice Bellard - <a href="https://bellard.org">https://bellard.org/</a>
-</body>
-</html>
