@@ -13,7 +13,7 @@
       <li>New release with
     experimental <a href="https://github.com/littledan/proposal-bigdecimal">BigDecimal</a>
     support and updated operator overloading.</li>
-      <li><a href="pi.html">Small Javascript programs</a> to compute
+      <li><a href="https://bellard.org/quickjs/pi.html">Small Javascript programs</a> to compute
       one billion digits of pi.</li>
     </ul>
   </li>
