@@ -116,7 +116,7 @@ conversion, unicode normalization, unicode script queries, unicode
 general category queries and all unicode binary properties.</li>
   <li><b>libbf</b>: small library implementing arbitrary precision
     IEEE 754 floating point operations and transcendental functions with
-    exact rounding. It is maintained as a <a href="https://bellard.org/quickjs/libbf">separate project</a>.
+    exact rounding. It is maintained as a <a href="https://bellard.org/libbf">separate project</a>.
   </li>
 </ul>
 
