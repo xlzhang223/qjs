@@ -3,6 +3,11 @@
 <h2>News</h2>
 
 <ul>
+  <li>2020-04-12:
+    <ul>
+      <li>New release</li>
+    </ul>
+  </li>
   <li>2020-03-16:
     <ul>
       <li>New release</li>
@@ -43,13 +48,11 @@ complete life cycle of a runtime instance completes in less than 300
 microseconds.</li>
 
 <li> Almost
-  complete <a href="https://www.ecma-international.org/ecma-262/10.0">ES2019</a>
+  complete <a href="https://tc39.github.io/ecma262/">ES2020</a>
   support including modules, asynchronous generators and full Annex B
-  support (legacy web compatibility). Many features from the
-  upcoming <a href="https://tc39.github.io/ecma262/">ES2020</a>
-  specification are also supported.</li>
+  support (legacy web compatibility).</li>
 
-<li>Passes nearly 100% of the ECMAScript Test Suite tests when selecting the ES2019 features.</li>
+<li>Passes nearly 100% of the ECMAScript Test Suite tests when selecting the ES2020 features.</li>
 
 <li> Can compile Javascript sources to executables with no external dependency.</li>
 
@@ -87,9 +90,9 @@ version</a>, <a href="https://bellard.org/quickjs/jsbignum.pdf">PDF version</a>.
 
 <ul>
   <li>
-    QuickJS source code: <a href="https://bellard.org/quickjs/quickjs-2020-03-16.tar.xz">quickjs-2020-03-16.tar.xz</a></li>
+    QuickJS source code: <a href="https://bellard.org/quickjs/quickjs-2020-04-12.tar.xz">quickjs-2020-04-12.tar.xz</a></li>
   <li>
-    QuickJS extras (contain the unicode files needed to rebuild the unicode tables and the bench-v8 benchmark): <a href="https://bellard.org/quickjs/quickjs-extras-2020-03-16.tar.xz">quickjs-extras-2020-03-16.tar.xz</a>
+    QuickJS extras (contain the unicode files needed to rebuild the unicode tables and the bench-v8 benchmark): <a href="https://bellard.org/quickjs/quickjs-extras-2020-04-12.tar.xz">quickjs-extras-2020-04-12.tar.xz</a>
   </li>
   <li>
     Unofficial <a href="https://github.com/horhof/quickjs">git mirror</a>.
