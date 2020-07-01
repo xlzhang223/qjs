@@ -290,6 +290,7 @@ int main(int argc, char **argv)
     int load_std = 0;
     int dump_unhandled_promise_rejection = 0;
     size_t memory_limit = 0;
+    size_t mmap_size = 0;
     char *include_list[32];
     int i, include_count = 0;
 #ifdef CONFIG_BIGNUM
@@ -407,6 +408,14 @@ int main(int argc, char **argv)
                 memory_limit = (size_t)strtod(argv[optind++], NULL);
                 continue;
             }
+            if (!strcmp(longopt, "mmap_size")) {
+                if (optind >= argc) {
+                    fprintf(stderr, "expecting mmap_size");
+                    exit(1);
+                }
+                mmap_size = (size_t)strtod(argv[optind++], NULL);
+                continue;
+            }
             if (opt) {
                 fprintf(stderr, "qjs: unknown option '-%c'\n", opt);
             } else {
@@ -428,6 +437,8 @@ int main(int argc, char **argv)
     }
     if (memory_limit != 0)
         JS_SetMemoryLimit(rt, memory_limit);
+    if (mmap_size != 0)
+        JS_SetMmapSize(rt, mmap_size);
     ctx = JS_NewContext(rt);
     if (!ctx) {
         fprintf(stderr, "qjs: cannot allocate JS context\n");
