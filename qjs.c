@@ -277,6 +277,8 @@ void help(void)
 
 int main(int argc, char **argv)
 {
+    void * heap_start = NULL;
+    heap_start = sbrk(0);
     JSRuntime *rt;
     JSContext *ctx;
     struct trace_malloc_data trace_data = { NULL };
@@ -290,7 +292,7 @@ int main(int argc, char **argv)
     int load_std = 0;
     int dump_unhandled_promise_rejection = 0;
     size_t memory_limit = 0;
-    size_t mmap_size = 0;
+    size_t mmap_size = 1024 * 1024 *64;
     char *include_list[32];
     int i, include_count = 0;
 #ifdef CONFIG_BIGNUM
@@ -439,6 +441,8 @@ int main(int argc, char **argv)
         JS_SetMemoryLimit(rt, memory_limit);
     if (mmap_size != 0)
         JS_SetMmapSize(rt, mmap_size);
+    if (heap_start != NULL)
+        JS_Setheap_start(rt, heap_start);
     ctx = JS_NewContext(rt);
     if (!ctx) {
         fprintf(stderr, "qjs: cannot allocate JS context\n");

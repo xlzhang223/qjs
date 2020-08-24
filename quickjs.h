@@ -330,8 +330,10 @@ typedef struct JSGCObjectHeader JSGCObjectHeader;
 
 JSRuntime *JS_NewRuntime(void);
 /* info lifetime must exceed that of rt */
+//zhang add pra
 void JS_SetMmapSize(JSRuntime *rt, size_t limit);
-
+void JS_Setheap_start(JSRuntime *rt, void* limit);
+//<<
 void JS_SetRuntimeInfo(JSRuntime *rt, const char *info);
 void JS_SetMemoryLimit(JSRuntime *rt, size_t limit);
 void JS_SetGCThreshold(JSRuntime *rt, size_t gc_threshold);
@@ -725,6 +727,7 @@ static js_force_inline JSValue JS_GetProperty(JSContext *ctx, JSValueConst this_
     //zhang
     {
     // void * p = JS_VALUE_GET_PTR(this_obj);
+    // set_obj_flag();
     // printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(this_obj));
     }//
     return JS_GetPropertyInternal(ctx, this_obj, prop, this_obj, 0);

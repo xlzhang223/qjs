@@ -99,6 +99,8 @@
 //#define DUMP_PROMISE
 //#define DUMP_READ_OBJECT
 
+#define DEV
+
 /* test the GC by forcing it before each object allocation */
 //#define FORCE_GC_AT_MALLOC
 
@@ -322,13 +324,37 @@ struct JSRuntime {
 
 //zhang
 void set_obj_flag(JSRuntime *rt,JSObject *obj){
-    uint32_t offset = (uint32_t)(((void*)obj - rt->heap_start) >> LOG);
+    uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
+    #ifdef DEV
+    // printf("set_obj_flag\n");
+    printf("set_obj_flag %x\n",obj);
+    // printf("set_obj_flag %d\n",offset);
+    #endif
+    if(offset > rt->mmap_size) return;
     mmap_p[offset].flag = 1;
 }
 
 void set_obj_line_info(JSRuntime *rt,JSObject *obj,size_t line_info){
-    uint32_t offset = (uint32_t)(((void*)obj - rt->heap_start) >> LOG);
+    uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
+    if(offset > rt->mmap_size) return   ;
     mmap_p[offset].info_hash = line_info;
+}
+
+int get_obj_flag(JSRuntime *rt,JSObject *obj){
+    uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
+    if(offset > rt->mmap_size) return -1;
+    #ifdef DEV
+    // printf("set_obj_flag\n");
+    printf("set_obj_flag %x\n",obj);
+    // printf("set_obj_flag %d\n",offset);
+    #endif
+    return mmap_p[offset].flag;
+}
+
+int get_obj_line_info(JSRuntime *rt,JSObject *obj){
+    uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
+    if(offset > rt->mmap_size) return -1;
+    return mmap_p[offset].info_hash;
 }
 //<<
 
@@ -1273,6 +1299,9 @@ static void js_trigger_gc(JSRuntime *rt, size_t size)
         JS_RunGC(rt);
         rt->malloc_gc_threshold = rt->malloc_state.malloc_size +
             (rt->malloc_state.malloc_size >> 1);
+        //zhang min
+        // rt->malloc_gc_threshold = fmin(rt->malloc_state.malloc_size +
+        //     (rt->malloc_state.malloc_size >> 1),rt->malloc_state.malloc_size + 1024 * 64);
     }
 }
 
@@ -1587,7 +1616,8 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
         rt->mf.js_malloc_usable_size = js_malloc_usable_size_unknown;
     }
     rt->malloc_state = ms;
-    rt->malloc_gc_threshold = 256 * 1024;
+    //zhang malloc_gc_threshold
+    rt->malloc_gc_threshold = 64 * 1024;
 
 #ifdef CONFIG_BIGNUM
     bf_context_init(&rt->bf_ctx, js_bf_realloc, rt);
@@ -1744,10 +1774,15 @@ void JS_SetMemoryLimit(JSRuntime *rt, size_t limit)
 {
     rt->malloc_state.malloc_limit = limit;
 }
-
+//zhang add pra
 void JS_SetMmapSize(JSRuntime *rt, size_t limit)
 {
     rt->mmap_size = limit;
+}
+//zhang add pra
+void JS_Setheap_start(JSRuntime *rt, void* limit)
+{
+    rt->heap_start = limit;
 }
 /* use -1 to disable automatic GC */
 void JS_SetGCThreshold(JSRuntime *rt, size_t gc_threshold)
@@ -2113,8 +2148,8 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
     init_list_head(&ctx->loaded_modules);
 
     JS_AddIntrinsicBasicObjects(ctx);
-
-    mmap_p = (byte *)mmap(NULL,rt->mmap_size,PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    // printf("mmap_size %d\n",rt->mmap_size);
+    mmap_p = (struct info*)mmap(NULL,rt->mmap_size,PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     return ctx;
 }
 
@@ -4783,8 +4818,23 @@ JSValue JS_NewObjectProto(JSContext *ctx, JSValueConst proto)
     return JS_NewObjectProtoClass(ctx, proto, JS_CLASS_OBJECT);
 }
 
+//zhang js array
+// static int find_line_num(JSContext *ctx, JSFunctionBytecode *b,
+                        //  uint32_t pc_value);
+
 JSValue JS_NewArray(JSContext *ctx)
 {
+    // JSValue ret_val = JS_NewObjectFromShape(ctx, js_dup_shape(ctx->array_shape),
+    //                              JS_CLASS_ARRAY);
+    // {
+    //     // JSValue obj = JS_NewObject(ctx);
+    //     void * p = JS_VALUE_GET_PTR(ret_val);
+    //     int le = find_line_num(ctx,b,pc-pc_s);
+    //     set_obj_line_info(rt,p,le);
+    //     printf("zhang new OP_array_from %#x line %d\n",p,le);
+    //     return ret_val;
+    //     // *sp++ = obj;
+    // }//
     return JS_NewObjectFromShape(ctx, js_dup_shape(ctx->array_shape),
                                  JS_CLASS_ARRAY);
 }
@@ -5258,8 +5308,9 @@ static void free_object(JSRuntime *rt, JSObject *p)
 {
     //zhang
     {
-        
-    // printf("zhang free_object %#x \n",p);
+    #ifdef DEV
+    printf("zhang free_object %#x \n",p);
+    #endif
     }//
     int i;
     JSClassFinalizer *finalizer;
@@ -5427,8 +5478,8 @@ void __JS_FreeValue(JSContext *ctx, JSValue v)
 static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
                           JSGCObjectTypeEnum type)
 {
-    //zhang dubug
-    debug_obj ++;
+    //zhang dubug 
+    // debug_obj ++;
     // if(type == JS_GC_OBJ_TYPE_JS_OBJECT)
     //     h->dummy1=233;
     //<<
@@ -5677,6 +5728,21 @@ void JS_RunGC(JSRuntime *rt)
 {
     /* decrement the reference of the children of each object. mark =
        1 after this pass. */
+    // printf("count gc %d\n");
+    // {
+    //     struct list_head *el;
+    //     /* return the pointer of type 'type *' containing 'el' as field 'member' */
+    //     JSGCObjectHeader *p;
+    //     /* keep the objects with a refcount > 0 and their children. */
+    //     list_for_each(el, &rt->gc_obj_list) {
+    //         p = list_entry(el, JSGCObjectHeader, link);
+    //         int line = get_obj_line_info(rt,(JSObject *)p); 
+    //         int flag = get_obj_flag(rt,(JSObject *)p);
+    //         // if(line != 0)
+    //             // printf("JS_RunGC obj: %p line:%d flag:%d\n",p,line,flag);   
+    //     }
+    // }
+
     gc_decref(rt);
 
     /* keep the GC objects with a non zero refcount and their childs */
@@ -5685,8 +5751,12 @@ void JS_RunGC(JSRuntime *rt)
     /* free the GC objects in a cycle */
     gc_free_cycles(rt);
     //zhang debug
-    debug_gc++;
-    printf("count gc %d,and alloc obj %d\n",debug_gc,debug_obj);
+    #ifdef DEV
+    {
+        debug_gc++;
+        printf("zhang gc _count %d\n",debug_gc);
+    }
+    #endif
     // #ifdef DUMP_MEM
     // {
     //     JSMemoryUsage stats;
@@ -8170,10 +8240,10 @@ static int JS_SetPropertyGeneric(JSContext *ctx,
 int JS_SetPropertyInternal(JSContext *ctx, JSValueConst this_obj,
                            JSAtom prop, JSValue val, int flags)
 {
-    //zhang
+    //zhang JS_SetPropertyInternal
     {
         // void * p = JS_VALUE_GET_PTR(this_obj);
-    // printf("zhang JS_SetPropertyInternal %#x \n",JS_VALUE_GET_PTR(this_obj));
+        // printf("zhang JS_SetPropertyInternal %#x \n",JS_VALUE_GET_PTR(this_obj));
     }//
     JSObject *p, *p1;
     JSShapeProperty *prs;
@@ -16063,17 +16133,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             *sp++ = JS_TRUE;
             BREAK;
         CASE(OP_object):
-            //zhang obj
-            //printf("zhang new OP_object %#x\n",pc);
-            //printf("zhang new OP_object line %d\n",b->debug.line_num);
-            //find_line_num(ctx,b,pc-pc_s);
-            //printf("zhang new OP_object line %d\n",find_line_num(ctx,b,pc-pc_s));
+
             {
+                //zhang new OP_object
                 JSValue obj = JS_NewObject(ctx);
-                // void * p = JS_VALUE_GET_PTR(obj);
-                // int le = b->debug.source_len;
-                
-                // printf("zhang new OP_object %#x line %d\n",JS_VALUE_GET_PTR(obj),b->debug.source_len);
+                void * p = JS_VALUE_GET_PTR(obj);
+                int le = find_line_num(ctx,b,pc-pc_s);
+                set_obj_line_info(rt,p,le);
+                #ifdef DEV
+                printf("zhang new OP_object %#x line %d\n",JS_VALUE_GET_PTR(obj),le);
+                #endif
                 *sp++ = obj;
             }//
             //*sp++ = JS_NewObject(ctx);
@@ -16082,8 +16151,10 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             BREAK;
         CASE(OP_special_object):
             {
-                //zhang obj
-                //printf("zhang new OP_special_object\n");
+                //zhang 
+                #ifdef DEV
+                printf("zhang new OP_special_object\n");
+                #endif
                 //
                 int arg = *pc++;
                 switch(arg) {
@@ -16363,6 +16434,18 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 call_argc = get_u16(pc);
                 pc += 2;
                 ret_val = JS_NewArray(ctx);
+                //zhang new array
+                {
+                // JSValue obj = JS_NewObject(ctx);
+                void * p = JS_VALUE_GET_PTR(ret_val);
+                int le = find_line_num(ctx,b,pc-pc_s);
+                set_obj_line_info(rt,p,le);
+                #ifdef DEV
+                printf("zhang new OP_array_from %#x line %d\n",p,le);
+                #endif
+                // *sp++ = obj;
+                }//
+
                 if (unlikely(JS_IsException(ret_val)))
                     goto exception;
                 call_argv = sp - call_argc;
@@ -16644,6 +16727,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             BREAK;
         CASE(OP_define_func):
             {
+                //zhang define func
                 JSAtom atom;
                 int flags;
                 atom = get_u32(pc);
@@ -17229,11 +17313,14 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 atom = get_u32(pc);
                 pc += 4;
                 val = JS_GetProperty(ctx, sp[-1], atom);
-                // //zhang
-                // {
-                // JSValue obj = sp[-1];
-                // printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
-                // }//
+                //zhang OP_get_field
+                {
+                    JSValue obj = sp[-1];
+                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                    #ifdef DEV
+                    printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
+                    #endif
+                }//
                 if (unlikely(JS_IsException(val)))
                     goto exception;
                 JS_FreeValue(ctx, sp[-1]);
@@ -17248,10 +17335,13 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 atom = get_u32(pc);
                 pc += 4;
                 //zhang
-                // {
-                // JSValue obj = sp[-1];
-                // printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
-                // }//
+                {
+                JSValue obj = sp[-1];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_get_field2 %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 val = JS_GetProperty(ctx, sp[-1], atom);
                 if (unlikely(JS_IsException(val)))
                     goto exception;
@@ -17266,10 +17356,13 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 atom = get_u32(pc);
                 pc += 4;
                 //zhang
-                // {
-                // JSValue obj = sp[-2];
-                // printf("zhang OP_put_field %#x \n",JS_VALUE_GET_PTR(obj));
-                // }//
+                {
+                JSValue obj = sp[-2];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_put_field %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 ret = JS_SetPropertyInternal(ctx, sp[-2], atom, sp[-1],
                                              JS_PROP_THROW_STRICT);
                 JS_FreeValue(ctx, sp[-2]);
@@ -17296,7 +17389,14 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
         CASE(OP_get_private_field):
             {
                 JSValue val;
-
+                //zhang
+                {
+                JSValue obj = sp[-2];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_get_private_field %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 val = JS_GetPrivateField(ctx, sp[-2], sp[-1]);
                 JS_FreeValue(ctx, sp[-1]);
                 JS_FreeValue(ctx, sp[-2]);
@@ -17310,6 +17410,14 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
         CASE(OP_put_private_field):
             {
                 int ret;
+                //zhang
+                {
+                JSValue obj = sp[-2];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_put_private_field %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 ret = JS_SetPrivateField(ctx, sp[-3], sp[-1], sp[-2]);
                 JS_FreeValue(ctx, sp[-3]);
                 JS_FreeValue(ctx, sp[-1]);
@@ -17322,6 +17430,14 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
         CASE(OP_define_private_field):
             {
                 int ret;
+                //zhang
+                {
+                JSValue obj = sp[-2];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_define_private_field %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 ret = JS_DefinePrivateField(ctx, sp[-3], sp[-2], sp[-1]);
                 JS_FreeValue(ctx, sp[-2]);
                 sp -= 2;
@@ -17336,12 +17452,14 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 JSAtom atom;
                 atom = get_u32(pc);
                 pc += 4;
-                // //zhang
-                // {
-                // JSValue obj = sp[-2];
-                // void * p = JS_VALUE_GET_PTR(obj);
-                // // printf("zhang OP_define_field %#x \n",JS_VALUE_GET_PTR(obj));
-                // }//
+                //zhang
+                {
+                JSValue obj = sp[-2];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_define_field %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 ret = JS_DefinePropertyValue(ctx, sp[-2], atom, sp[-1],
                                              JS_PROP_C_W_E | JS_PROP_THROW);
                 sp--;
@@ -17356,7 +17474,14 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 JSAtom atom;
                 atom = get_u32(pc);
                 pc += 4;
-
+                //zhang
+                {
+                JSValue obj = sp[-1];
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                #ifdef DEV
+                printf("zhang OP_set_name %#x \n",JS_VALUE_GET_PTR(obj));
+                #endif
+                }//
                 ret = JS_DefineObjectName(ctx, sp[-1], atom, JS_PROP_CONFIGURABLE);
                 if (unlikely(ret < 0))
                     goto exception;
@@ -17498,6 +17623,12 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 }
                 val = JS_GetPropertyValue(ctx, sp[-2],
                                           JS_DupValue(ctx, sp[-1]));
+                //zhang
+                {
+                // JSValue obj = sp[-2];
+                // set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                // printf("zhang OP_put_field %#x \n",JS_VALUE_GET_PTR(obj));
+                }//
                 if (unlikely(JS_IsException(val)))
                     goto exception;
                 sp[0] = val;
@@ -17513,6 +17644,12 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 if (unlikely(atom == JS_ATOM_NULL))
                     goto exception;
                 val = JS_GetPropertyInternal(ctx, sp[-2], atom, sp[-3], FALSE);
+                //zhang
+                {
+                // JSValue obj = sp[-2];
+                // set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                // printf("zhang OP_put_field %#x \n",JS_VALUE_GET_PTR(obj));
+                }//
                 JS_FreeAtom(ctx, atom);
                 if (unlikely(JS_IsException(val)))
                     goto exception;
