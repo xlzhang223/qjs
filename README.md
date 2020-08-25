@@ -5,7 +5,7 @@
 
 <h2>运行脚本</h2>
 
-通过qjs允许一个js脚本： `./qjs xxxx.js`
+通过qjs允许一个js脚本： `./qjs xlz.js`
 
 <h2>Debug</h2>
 
