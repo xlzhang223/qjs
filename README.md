@@ -34,6 +34,26 @@
 
 如何适当修改gc的间隔阈值帮助实验：
 
+<h2>部署到Android</h2>  
+
+### Step1. 下载交叉编译工具
+Android NDK下载地址：https://developer.android.google.cn/ndk/downloads?hl=zh-cn  
+
+下载对应平台的工具，之后解压到 `${android_ndk_dir}` ，无需编译。
+### Step2. 修改QuickJS中的Makefile文件
+附件修改的是原版QuickJS的Makefile文件，修改的地方已经使用 #haohao 标注供参考。具体修改方案
+如下：
+* CROSS_PREFIX
+  ```CROSS_PREFIX=${android_ndk_dir}/toolchains/llvm/prebuilt/linux-x86_64/bin/```
+* CC  
+  ```CC=$(CROSS_PREFIX)aarch64-linux-android29-clang```
+* AR  
+  `AR=$(CROSS_PREFIX)llvm-ar`
+* LIBS  
+  `LIBS+=-ldl -lc`  
+Android NDK中不提供 libpthread 库，相关功能使用 libc 库代替。
+### Step3. 编译
+```make```
 
 <h2>Licensing</h2>
 
