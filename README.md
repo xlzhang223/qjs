@@ -5,7 +5,7 @@
 
 <h2>运行脚本</h2>
 
-通过qjs允许一个js脚本： `./qjs xxxx.js`
+通过qjs允许一个js脚本： `./qjs xlz.js`
 
 <h2>Debug</h2>
 
@@ -29,7 +29,7 @@
 
 输出配置检测的heap大小：
 
-假设检测10000000字节：`./qjs xxxx.js mmap_size 10000000`
+假设检测10000000字节：`./qjs xlz.js mmap_size 10000000`
 
 
 如何适当修改gc的间隔阈值帮助实验：
