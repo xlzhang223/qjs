@@ -99,7 +99,8 @@
 //#define DUMP_PROMISE
 //#define DUMP_READ_OBJECT
 
-#define DEV
+// #define DEV
+// #define MYTRACE
 
 /* test the GC by forcing it before each object allocation */
 //#define FORCE_GC_AT_MALLOC
@@ -323,18 +324,17 @@ struct JSRuntime {
 };
 
 //zhang
-void set_obj_flag(JSRuntime *rt,JSObject *obj){
+void set_obj_flag(JSRuntime *rt,JSObject *obj,int f){
     uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
     #ifdef DEV
-    // printf("set_obj_flag\n");
     printf("set_obj_flag %x\n",obj);
-    // printf("set_obj_flag %d\n",offset);
     #endif
     if(offset > rt->mmap_size) return;
-    mmap_p[offset].flag = 1;
+    mmap_p[offset].flag = f;
 }
 
 void set_obj_line_info(JSRuntime *rt,JSObject *obj,size_t line_info){
+    // printf("set_obj_line_info %x %d\n",obj,line_info);
     uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
     if(offset > rt->mmap_size) return   ;
     mmap_p[offset].info_hash = line_info;
@@ -344,9 +344,7 @@ int get_obj_flag(JSRuntime *rt,JSObject *obj){
     uint32_t offset = (((uintptr_t)obj - (uintptr_t)rt->heap_start ) >> LOG);
     if(offset > rt->mmap_size) return -1;
     #ifdef DEV
-    // printf("set_obj_flag\n");
     printf("set_obj_flag %x\n",obj);
-    // printf("set_obj_flag %d\n",offset);
     #endif
     return mmap_p[offset].flag;
 }
@@ -5723,25 +5721,43 @@ static void gc_free_cycles(JSRuntime *rt)
     init_list_head(&rt->gc_zero_ref_count_list);
 }
 
+int gc_count = 0;
 //zhang gc
 void JS_RunGC(JSRuntime *rt)
 {
     /* decrement the reference of the children of each object. mark =
        1 after this pass. */
     // printf("count gc %d\n");
-    // {
-    //     struct list_head *el;
-    //     /* return the pointer of type 'type *' containing 'el' as field 'member' */
-    //     JSGCObjectHeader *p;
-    //     /* keep the objects with a refcount > 0 and their children. */
-    //     list_for_each(el, &rt->gc_obj_list) {
-    //         p = list_entry(el, JSGCObjectHeader, link);
-    //         int line = get_obj_line_info(rt,(JSObject *)p); 
-    //         int flag = get_obj_flag(rt,(JSObject *)p);
-    //         // if(line != 0)
-    //             // printf("JS_RunGC obj: %p line:%d flag:%d\n",p,line,flag);   
-    //     }
-    // }
+    #ifdef MYTRACE
+    {
+        struct list_head *el;
+        gc_count++;
+        #ifdef DEV
+        {
+            debug_gc++;
+            printf("zhang gc _count %d\n",debug_gc);
+        }
+        #endif
+        printf("JS_RunGC %d\n",gc_count);
+        /* return the pointer of type 'type *' containing 'el' as field 'member' */
+        JSGCObjectHeader *p;
+        /* keep the objects with a refcount > 0 and their children. */
+        list_for_each(el, &rt->gc_obj_list) {
+            p = list_entry(el, JSGCObjectHeader, link);
+            int line = get_obj_line_info(rt,(JSObject *)p); 
+            int flag = get_obj_flag(rt,(JSObject *)p);
+            if(!flag && line != 0){
+                printf("JS_RunGC obj: %p line:%d flag:%d\n",p,line,flag);
+            }
+            // else if(line != 0)
+            // {
+            //     printf("JS_RunGC obj not leak: %p line:%d flag:%d\n",p,line,flag);
+            // }
+            
+            set_obj_flag(rt,(JSObject *)p,0);
+        }
+    }
+    #endif
 
     gc_decref(rt);
 
@@ -5751,12 +5767,6 @@ void JS_RunGC(JSRuntime *rt)
     /* free the GC objects in a cycle */
     gc_free_cycles(rt);
     //zhang debug
-    #ifdef DEV
-    {
-        debug_gc++;
-        printf("zhang gc _count %d\n",debug_gc);
-    }
-    #endif
     // #ifdef DUMP_MEM
     // {
     //     JSMemoryUsage stats;
@@ -16133,15 +16143,17 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             *sp++ = JS_TRUE;
             BREAK;
         CASE(OP_object):
-
             {
                 //zhang new OP_object
+            
                 JSValue obj = JS_NewObject(ctx);
+                #ifdef MYTRACE
                 void * p = JS_VALUE_GET_PTR(obj);
                 int le = find_line_num(ctx,b,pc-pc_s);
                 set_obj_line_info(rt,p,le);
                 #ifdef DEV
                 printf("zhang new OP_object %#x line %d\n",JS_VALUE_GET_PTR(obj),le);
+                #endif
                 #endif
                 *sp++ = obj;
             }//
@@ -16435,6 +16447,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 pc += 2;
                 ret_val = JS_NewArray(ctx);
                 //zhang new array
+                #ifdef MYTRACE
                 {
                 // JSValue obj = JS_NewObject(ctx);
                 void * p = JS_VALUE_GET_PTR(ret_val);
@@ -16445,6 +16458,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 #endif
                 // *sp++ = obj;
                 }//
+                #endif
 
                 if (unlikely(JS_IsException(ret_val)))
                     goto exception;
@@ -17314,13 +17328,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 pc += 4;
                 val = JS_GetProperty(ctx, sp[-1], atom);
                 //zhang OP_get_field
+                #ifdef MYTRACE
                 {
                     JSValue obj = sp[-1];
-                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                     #ifdef DEV
                     printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
                     #endif
                 }//
+                #endif
                 if (unlikely(JS_IsException(val)))
                     goto exception;
                 JS_FreeValue(ctx, sp[-1]);
@@ -17334,14 +17350,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 JSAtom atom;
                 atom = get_u32(pc);
                 pc += 4;
+                #ifdef MYTRACE
                 //zhang
                 {
                 JSValue obj = sp[-1];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_get_field2 %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 val = JS_GetProperty(ctx, sp[-1], atom);
                 if (unlikely(JS_IsException(val)))
                     goto exception;
@@ -17355,14 +17373,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 JSAtom atom;
                 atom = get_u32(pc);
                 pc += 4;
+                #ifdef MYTRACE
                 //zhang
                 {
                 JSValue obj = sp[-2];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_put_field %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 ret = JS_SetPropertyInternal(ctx, sp[-2], atom, sp[-1],
                                              JS_PROP_THROW_STRICT);
                 JS_FreeValue(ctx, sp[-2]);
@@ -17390,13 +17410,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             {
                 JSValue val;
                 //zhang
+                #ifdef MYTRACE
                 {
                 JSValue obj = sp[-2];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_get_private_field %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 val = JS_GetPrivateField(ctx, sp[-2], sp[-1]);
                 JS_FreeValue(ctx, sp[-1]);
                 JS_FreeValue(ctx, sp[-2]);
@@ -17411,13 +17433,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             {
                 int ret;
                 //zhang
+                #ifdef MYTRACE
                 {
                 JSValue obj = sp[-2];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_put_private_field %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 ret = JS_SetPrivateField(ctx, sp[-3], sp[-1], sp[-2]);
                 JS_FreeValue(ctx, sp[-3]);
                 JS_FreeValue(ctx, sp[-1]);
@@ -17431,13 +17455,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
             {
                 int ret;
                 //zhang
+                #ifdef MYTRACE
                 {
                 JSValue obj = sp[-2];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_define_private_field %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 ret = JS_DefinePrivateField(ctx, sp[-3], sp[-2], sp[-1]);
                 JS_FreeValue(ctx, sp[-2]);
                 sp -= 2;
@@ -17452,14 +17478,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 JSAtom atom;
                 atom = get_u32(pc);
                 pc += 4;
+                #ifdef MYTRACE
                 //zhang
                 {
                 JSValue obj = sp[-2];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_define_field %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 ret = JS_DefinePropertyValue(ctx, sp[-2], atom, sp[-1],
                                              JS_PROP_C_W_E | JS_PROP_THROW);
                 sp--;
@@ -17475,13 +17503,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 atom = get_u32(pc);
                 pc += 4;
                 //zhang
+                #ifdef MYTRACE
                 {
                 JSValue obj = sp[-1];
-                set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
+                set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
                 #ifdef DEV
                 printf("zhang OP_set_name %#x \n",JS_VALUE_GET_PTR(obj));
                 #endif
                 }//
+                #endif
                 ret = JS_DefineObjectName(ctx, sp[-1], atom, JS_PROP_CONFIGURABLE);
                 if (unlikely(ret < 0))
                     goto exception;
@@ -17593,6 +17623,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 val = JS_GetPropertyValue(ctx, sp[-2], sp[-1]);
                 JS_FreeValue(ctx, sp[-2]);
                 sp[-2] = val;
+                //zhang
+                #ifdef MYTRACE
+                {
+                    JSValue obj = sp[-2];
+                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
+                    #ifdef DEV
+                    printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
+                    #endif
+                }//
+                #endif
                 sp--;
                 if (unlikely(JS_IsException(val)))
                     goto exception;
@@ -17605,6 +17645,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
 
                 val = JS_GetPropertyValue(ctx, sp[-2], sp[-1]);
                 sp[-1] = val;
+                //zhang
+                #ifdef MYTRACE
+                {
+                    JSValue obj = sp[-1];
+                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
+                    #ifdef DEV
+                    printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
+                    #endif
+                }//
+                #endif
                 if (unlikely(JS_IsException(val)))
                     goto exception;
             }
@@ -17624,11 +17674,15 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 val = JS_GetPropertyValue(ctx, sp[-2],
                                           JS_DupValue(ctx, sp[-1]));
                 //zhang
+                #ifdef MYTRACE
                 {
-                // JSValue obj = sp[-2];
-                // set_obj_flag(rt,JS_VALUE_GET_PTR(obj));
-                // printf("zhang OP_put_field %#x \n",JS_VALUE_GET_PTR(obj));
+                    JSValue obj = sp[-2];
+                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
+                    #ifdef DEV
+                    printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
+                    #endif
                 }//
+                #endif
                 if (unlikely(JS_IsException(val)))
                     goto exception;
                 sp[0] = val;
@@ -17666,6 +17720,16 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
                 int ret;
 
                 ret = JS_SetPropertyValue(ctx, sp[-3], sp[-2], sp[-1], JS_PROP_THROW_STRICT);
+                //zhang
+                #ifdef MYTRACE
+                {
+                    JSValue obj = sp[-3];
+                    set_obj_flag(rt,JS_VALUE_GET_PTR(obj),1);
+                    #ifdef DEV
+                    printf("zhang OP_get_field %#x \n",JS_VALUE_GET_PTR(obj));
+                    #endif
+                }//
+                #endif
                 JS_FreeValue(ctx, sp[-3]);
                 sp -= 3;
                 if (unlikely(ret < 0))
